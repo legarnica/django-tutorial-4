@@ -4,18 +4,32 @@ from polls.models import Choice, Question
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views import generic
+from django.utils import timezone
+
 
 class IndexView(generic.ListView):
     template_name = 'polls/index.html'
     context_object_name = 'latest_question_list'
 
     def get_queryset(self):
-        """Return the last five published questions."""
-        return Question.objects.order_by('-pub_date')[:5]
+        """
+        Return the last five published questions (not including those set to be
+        published in the future).
+        """
+        return Question.objects.filter(
+            pub_date__lte=timezone.now()
+        ).order_by('-pub_date')[:5]
+
 
 class DetailView(generic.DetailView):
     model = Question
     template_name = 'polls/detail.html'
+
+    def get_queryset(self):
+        """
+        Excludes any questions that aren't published yet.
+        """
+        return Question.objects.filter(pub_date__lte=timezone.now())
 
 
 class ResultsView(generic.DetailView):
@@ -28,6 +42,7 @@ def index(request):
     context = {'latest_question_list': latest_question_list}
     return render(request, 'polls/index.html', context)
 
+
 def pre_index(request):
     latest_question_list = Question.objects.order_by('-pub_date')[:5]
     template = loader.get_template('polls/index.html')
@@ -36,9 +51,11 @@ def pre_index(request):
     }
     return HttpResponse(template.render(context, request))
 
+
 def detail(request, question_id):
     question = get_object_or_404(Question, pk=question_id)  # Es un atajo, mas no necesita un mensaje pues irá al 404
     return render(request, 'polls/detail.html', {'question': question})
+
 
 def pre_dos_detail(request, question_id):
     print('en details [request][question_id][%s][%s]' % (request, question_id))
@@ -48,19 +65,24 @@ def pre_dos_detail(request, question_id):
         raise Http404("Question does not exist (Error personalizado)")
     return render(request, 'polls/detail.html', {'question': question})
 
+
 def pre_uno_detail(request, question_id):
     return HttpResponse("You're looking at question %s." % question_id)
+
 
 def pre_uno_results(request, question_id):
     response = "You're looking at the results of question %s."
     return HttpResponse(response % question_id)
 
+
 def results(request, question_id):
     question = get_object_or_404(Question, pk=question_id)
     return render(request, 'polls/results.html', {'question': question})
 
+
 def pre_uno_vote(request, question_id):
     return HttpResponse("You're voting on question %s." % question_id)
+
 
 def vote(request, question_id):
     question = get_object_or_404(Question, pk=question_id)
